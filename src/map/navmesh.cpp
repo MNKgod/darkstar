@@ -323,7 +323,7 @@ int16 CNavMesh::findPath(position_t start, position_t end, position_t* path, uin
   return pos;
 }
 
-int16 CNavMesh::findRandomPath(position_t start, float maxRadius, position_t* path, uint16 pathSize)
+int16 CNavMesh::findRandomPosition(position_t start, float maxRadius, position_t* randomPosition)
 {
 
   dtStatus status;
@@ -371,20 +371,46 @@ int16 CNavMesh::findRandomPath(position_t start, float maxRadius, position_t* pa
     return ERROR_NEARESTPOLY;
   }
 
-  position_t end;
-
   CNavMesh::ToFFXIPos(randomPt);
-  end.x = randomPt[0];
-  end.y = randomPt[1];
-  end.z = randomPt[2];
+  randomPosition->x = randomPt[0];
+  randomPosition->y = randomPt[1];
+  randomPosition->z = randomPt[2];
 
-  return findPath(start, end, path, pathSize);
+  return 0;
 }
 
 bool CNavMesh::inWater(position_t point)
 {
   // TODO:
   return false;
+}
+
+bool CNavMesh::validPosition(position_t position)
+{
+  float spos[3];
+  CNavMesh::ToDetourPos(&position, spos);
+
+  float polyPickExt[3];
+  polyPickExt[0] = 30;
+  polyPickExt[1] = 60;
+  polyPickExt[2] = 30;
+
+  float snearest[3];
+
+  dtQueryFilter filter;
+  filter.setIncludeFlags(0xffff);
+  filter.setExcludeFlags(0);
+
+  dtPolyRef startRef;
+
+  dtStatus status = m_navMeshQuery->findNearestPoly(spos, polyPickExt, &filter, &startRef, snearest);
+
+  if(dtStatusFailed(status))
+  {
+    return false;
+  }
+
+  return m_navMesh->isValidPolyRef(startRef);
 }
 
 bool CNavMesh::raycast(position_t start, position_t end)
