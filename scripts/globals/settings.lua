@@ -19,9 +19,9 @@ require("scripts/globals/common");
 ENABLE_COP     = 1;
 ENABLE_TOAU    = 1;
 ENABLE_WOTG    = 1;
-ENABLE_ACP     = 0;
-ENABLE_AMK     = 0;
-ENABLE_ASA     = 0;
+ENABLE_ACP     = 1;
+ENABLE_AMK     = 1;
+ENABLE_ASA     = 1;
 ENABLE_ABYSSEA = 1;
 ENABLE_SOA     = 1;
 
