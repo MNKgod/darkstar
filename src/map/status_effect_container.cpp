@@ -1091,7 +1091,7 @@ void CStatusEffectContainer::UpdateStatusIcons()
     ((CCharEntity*)m_POwner)->pushPacket(new CCharUpdatePacket((CCharEntity*)m_POwner));
     ((CCharEntity*)m_POwner)->pushPacket(new CCharJobExtraPacket((CCharEntity*)m_POwner, true));
     ((CCharEntity*)m_POwner)->pushPacket(new CCharJobExtraPacket((CCharEntity*)m_POwner, false));
-    //((CCharEntity*)m_POwner)->pushPacket(new CStatusEffectPacket((CCharEntity*)m_POwner));
+    ((CCharEntity*)m_POwner)->pushPacket(new CStatusEffectPacket((CCharEntity*)m_POwner));
 }
 
 /************************************************************************
@@ -1129,7 +1129,7 @@ void CStatusEffectContainer::SetEffectParams(CStatusEffect* StatusEffect)
 
 
     //todo: find a better place to put this?
-    if(!m_POwner->isDead())
+    if(m_POwner->PBattleAI->IsInSleepableAction())
     {
         // this should actually go into a char charm AI
         if(m_POwner->PPet != nullptr && m_POwner->objtype == TYPE_PC)
