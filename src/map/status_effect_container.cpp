@@ -35,6 +35,7 @@ When a status effect is gained twice on a player. It can do one or more of the f
 #include "../common/timer.h"
 
 #include <string.h>
+#include <array>
 
 #include "lua/luautils.h"
 
@@ -96,7 +97,7 @@ namespace effects
         uint32    MinDuration;
     };
 
-    EffectParams_t EffectsParams[MAX_EFFECTID];
+    std::array<EffectParams_t, MAX_EFFECTID> EffectsParams;
 
     /************************************************************************
     *                                                                       *

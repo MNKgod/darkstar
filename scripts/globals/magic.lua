@@ -48,8 +48,10 @@ require("scripts/globals/utils")
     elementalObi = {MOD_FORCE_FIRE_DWBONUS, MOD_FORCE_EARTH_DWBONUS, MOD_FORCE_WATER_DWBONUS, MOD_FORCE_WIND_DWBONUS, MOD_FORCE_ICE_DWBONUS, MOD_FORCE_LIGHTNING_DWBONUS, MOD_FORCE_LIGHT_DWBONUS, MOD_FORCE_DARK_DWBONUS};
     elementalObiWeak = {MOD_FORCE_WATER_DWBONUS, MOD_FORCE_WIND_DWBONUS, MOD_FORCE_LIGHTNING_DWBONUS, MOD_FORCE_ICE_DWBONUS, MOD_FORCE_FIRE_DWBONUS, MOD_FORCE_EARTH_DWBONUS, MOD_FORCE_DARK_DWBONUS, MOD_FORCE_LIGHT_DWBONUS};
     spellAcc = {MOD_FIREACC, MOD_EARTHACC, MOD_WATERACC, MOD_WINDACC, MOD_ICEACC, MOD_THUNDERACC, MOD_LIGHTACC, MOD_DARKACC};
-    strongAffinity = {MOD_FIRE_AFFINITY, MOD_EARTH_AFFINITY, MOD_WATER_AFFINITY, MOD_WIND_AFFINITY, MOD_ICE_AFFINITY, MOD_THUNDER_AFFINITY, MOD_LIGHT_AFFINITY, MOD_DARK_AFFINITY};
-    weakAffinity = {MOD_WATER_AFFINITY, MOD_WIND_AFFINITY, MOD_THUNDER_AFFINITY, MOD_ICE_AFFINITY, MOD_FIRE_AFFINITY, MOD_EARTH_AFFINITY, MOD_DARK_AFFINITY, MOD_LIGHT_AFFINITY};
+    strongAffinityDmg = {MOD_FIRE_AFFINITY_DMG, MOD_EARTH_AFFINITY_DMG, MOD_WATER_AFFINITY_DMG, MOD_WIND_AFFINITY_DMG, MOD_ICE_AFFINITY_DMG, MOD_THUNDER_AFFINITY_DMG, MOD_LIGHT_AFFINITY_DMG, MOD_DARK_AFFINITY_DMG};
+    weakAffinityDmg = {MOD_WATER_AFFINITY_DMG, MOD_WIND_AFFINITY_DMG, MOD_THUNDER_AFFINITY_DMG, MOD_ICE_AFFINITY_DMG, MOD_FIRE_AFFINITY_DMG, MOD_EARTH_AFFINITY_DMG, MOD_DARK_AFFINITY_DMG, MOD_LIGHT_AFFINITY_DMG};
+    strongAffinityAcc = {MOD_FIRE_AFFINITY_ACC, MOD_EARTH_AFFINITY_ACC, MOD_WATER_AFFINITY_ACC, MOD_WIND_AFFINITY_ACC, MOD_ICE_AFFINITY_ACC, MOD_THUNDER_AFFINITY_ACC, MOD_LIGHT_AFFINITY_ACC, MOD_DARK_AFFINITY_ACC};
+    weakAffinityAcc = {MOD_WATER_AFFINITY_ACC, MOD_WIND_AFFINITY_ACC, MOD_THUNDER_AFFINITY_ACC, MOD_ICE_AFFINITY_ACC, MOD_FIRE_AFFINITY_ACC, MOD_EARTH_AFFINITY_ACC, MOD_DARK_AFFINITY_ACC, MOD_LIGHT_AFFINITY_ACC};
     resistMod = {MOD_FIRERES, MOD_EARTHRES, MOD_WATERRES, MOD_WINDRES, MOD_ICERES, MOD_THUNDERRES, MOD_LIGHTRES, MOD_DARKRES};
     defenseMod = {MOD_FIREDEF, MOD_EARTHDEF, MOD_WATERDEF, MOD_WINDDEF, MOD_ICEDEF, MOD_THUNDERDEF, MOD_LIGHTDEF, MOD_DARKDEF};
     absorbMod = {MOD_FIRE_ABSORB, MOD_EARTH_ABSORB, MOD_WATER_ABSORB, MOD_WIND_ABSORB, MOD_ICE_ABSORB, MOD_LTNG_ABSORB, MOD_LIGHT_ABSORB, MOD_DARK_ABSORB};
@@ -287,29 +289,20 @@ end;
 -- affinities that strengthen/weaken the index element
 
 
-function AffinityBonus(caster,ele)
+function AffinityBonusDmg(caster,ele)
 
-    local bonus = 1.00;
-
-    local affinity = caster:getMod(strongAffinity[ele]) - caster:getMod(weakAffinity[ele]);
-
-    -- Iridal and Chatoyant will return affinity for strong and weak, cancelling their bonus out, so they need to be specifically checked.
-    -- Could do an if strong == weak, but that would cause problems once/if augments or magian gear is added.
-    local equippedMain = caster:getEquipID(SLOT_MAIN);
-    if (equippedMain == 18632) then
-        affinity = affinity + 1;
-    elseif (equippedMain == 18633) then
-        affinity = affinity + 2;
-    end
-
-    if (affinity > 0) then
-        bonus = bonus + 0.05 + 0.05 * affinity;
-    elseif (affinity < 0) then
-        bonus = bonus - 0.05 + 0.05 * affinity;
-    end
-
+    local affinity = caster:getMod(strongAffinityDmg[ele]) - caster:getMod(weakAffinityDmg[ele]) + caster:getMod(MOD_ALL_AFFINITY_DMG);
+    local bonus = 1.00 + affinity * 0.05; -- 5% per level of affinity
+    -- print(bonus);
     return bonus;
+end;
 
+function AffinityBonusAcc(caster,ele)
+
+    local affinity = caster:getMod(strongAffinityAcc[ele]) - caster:getMod(weakAffinityAcc[ele]) + caster:getMod(MOD_ALL_AFFINITY_ACC);
+    local bonus = 0 + affinity * 10; -- 10 acc per level of affinity
+    -- print(bonus);
+    return bonus;
 end;
 
 -- USED FOR DAMAGING MAGICAL SPELLS. Stage 3 of Calculating Magic Damage on wiki
@@ -319,66 +312,7 @@ end;
 -- The factor to multiply down damage (1/2 1/4 1/8 1/16) - In this format so this func can be used for enfeebs on duration.
 
 function applyResistance(player,spell,target,diff,skill,bonus)
-
-    local magicaccbonus = 0;
-    local element = spell:getElement();
-    local castersWeather = player:getWeather();
-
-    if (bonus ~= nil) then
-        magicaccbonus = magicaccbonus + bonus;
-    end
-
-    if (skill == SINGING_SKILL and player:hasStatusEffect(EFFECT_TROUBADOUR)) then
-        if (math.random(0,99) < player:getMerit(MERIT_TROUBADOUR)-25) then
-            return 1.0;
-        end
-    end
-
-    local percentBonus = 0;
-
-    if player:hasStatusEffect(EFFECT_ALTRUISM) and spell:getSpellGroup() == SPELLGROUP_WHITE then
-        magicaccbonus = magicaccbonus + player:getStatusEffect(EFFECT_ALTRUISM):getPower();
-    end
-	
-    if player:hasStatusEffect(EFFECT_FOCALIZATION) and spell:getSpellGroup() == SPELLGROUP_BLACK then
-        magicaccbonus = magicaccbonus + player:getStatusEffect(EFFECT_FOCALIZATION):getPower();
-    end
-    --difference in int/mnd
-	
-    if (diff > 10) then
-        magicaccbonus = magicaccbonus + 10 + (diff - 10)/2;
-    else
-        magicaccbonus = magicaccbonus + diff;
-    end
-	
-    --Add acc for dark seal
-    if (player:getStatusEffect(EFFECT_DARK_SEAL) ~= nil and skill == DARK_MAGIC_SKILL) then
-        magicaccbonus = magicaccbonus + 256;
-    end
-	
-    --Add acc for klimaform
-    if (player:hasStatusEffect(EFFECT_KLIMAFORM) and (castersWeather == singleWeatherStrong[element] or castersWeather == doubleWeatherStrong[element])) then
-        magicaccbonus = magicaccbonus + 15;
-    end
-
-    local skillchainTier, skillchainCount = FormMagicBurst(element, target);
-
-    --add acc for BLM AMII spells
-    if (spell:getID() == 205 or spell:getID() == 207 or spell:getID() == 209 or spell:getID() == 211 or spell:getID() == 213 or spell:getID() == 215) then
-        if (player:getMerit(blmAMIIMerit[spell:getElement()]) ~= 0) then -- no bonus if the caster has zero merit investment - don't want to give them a negative bonus
-            magicaccbonus = magicaccbonus + (player:getMerit(blmAMIIMerit[spell:getElement()]) - 1) * 5; -- bonus value granted by merit is 1; subtract 1 since unlock doesn't give an accuracy bonus
-            -- print((player:getMerit(blmAMIIMerit[spell:getElement()]) - 1) * 5)
-        end
-    end
-    
-    --add acc for skillchains
-    if (skillchainTier > 0) then
-        magicaccbonus = magicaccbonus + 25;
-    end
-
-    local p = getMagicHitRate(player, target, skill, element, percentBonus, magicaccbonus);
-
-    return getMagicResist(p);
+    return applyResistanceEffect(player, spell, target, diff, skill, bonus, nil);
 end;
 
 -- USED FOR Status Effect Enfeebs (blind, slow, para, etc.)
@@ -388,17 +322,9 @@ end;
 function applyResistanceEffect(player,spell,target,diff,skill,bonus,effect)
 
     -- If Stymie is active, as long as the mob is not immune then the effect is not resisted
-    if (player:hasStatusEffect(EFFECT_STYMIE) and target:canGainStatusEffect(effect)) then
+    if (skill == ENFEEBLING_MAGIC_SKILL and player:hasStatusEffect(EFFECT_STYMIE) and target:canGainStatusEffect(effect)) then
         player:delStatusEffect(EFFECT_STYMIE);
         return 1;
-    end
-
-    local magicaccbonus = 0;
-    local element = spell:getElement();
-    local percentBonus = 0;
-
-    if (bonus ~= nil) then
-        magicaccbonus = magicaccbonus + bonus;
     end
 
     if (skill == SINGING_SKILL and player:hasStatusEffect(EFFECT_TROUBADOUR)) then
@@ -407,68 +333,22 @@ function applyResistanceEffect(player,spell,target,diff,skill,bonus,effect)
         end
     end
 
-    if player:hasStatusEffect(EFFECT_ALTRUISM) and spell:getSpellGroup() == SPELLGROUP_WHITE then
-      magicaccbonus = magicaccbonus + player:getStatusEffect(EFFECT_ALTRUISM):getPower();
-    end
-    if player:hasStatusEffect(EFFECT_FOCALIZATION) and spell:getSpellGroup() == SPELLGROUP_BLACK then
-      magicaccbonus = magicaccbonus + player:getStatusEffect(EFFECT_FOCALIZATION):getPower();
-    end
+    local element = spell:getElement();
+    local percentBonus = 0;
+    local magicaccbonus = getSpellBonusAcc(player, target, spell);
 
-    --difference in int/mnd
     if (diff > 10) then
         magicaccbonus = magicaccbonus + 10 + (diff - 10)/2;
     else
         magicaccbonus = magicaccbonus + diff;
     end
-    --add acc for ele/dark seal
-    if (player:getStatusEffect(EFFECT_DARK_SEAL) ~= nil and skill == DARK_MAGIC_SKILL) then
-        magicaccbonus = magicaccbonus + 256;
+
+    if (bonus ~= nil) then
+        magicaccbonus = magicaccbonus + bonus;
     end
 
-    local skillchainTier, skillchainCount = FormMagicBurst(element, target);
-    --add acc for skillchains
-    if (skillchainTier > 0) then
-        magicaccbonus = magicaccbonus + 25;
-    end
-
-    -- add effect resistence
-    if (effect ~= nil and effect > 0) then
-        local effectres = 0;
-        if (effect == EFFECT_SLEEP_I or effect == EFFECT_SLEEP_II) then
-            effectres = MOD_SLEEPRES;
-        elseif(effect == EFFECT_LULLABY) then
-            effectres = MOD_LULLABYRES;
-        elseif (effect == EFFECT_POISON) then
-            effectres = MOD_POISONRES;
-        elseif (effect == EFFECT_PARALYZE) then
-            effectres = MOD_PARALYZERES;
-        elseif (effect == EFFECT_BLINDNESS) then
-            effectres = MOD_BLINDRES
-        elseif (effect == EFFECT_SILENCE) then
-            effectres = MOD_SILENCERES;
-        elseif (effect == EFFECT_PLAGUE or effect == EFFECT_DISEASE) then
-            effectres = MOD_VIRUSRES;
-        elseif (effect == EFFECT_PETRIFICATION) then
-            effectres = MOD_PETRIFYRES;
-        elseif (effect == EFFECT_BIND) then
-            effectres = MOD_BINDRES;
-        elseif (effect == EFFECT_CURSE_I or effect == EFFECT_CURSE_II or effect == EFFECT_BANE) then
-            effectres = MOD_CURSERES;
-        elseif (effect == EFFECT_WEIGHT) then
-            effectres = MOD_GRAVITYRES;
-        elseif (effect == EFFECT_SLOW) then
-            effectres = MOD_SLOWRES;
-        elseif (effect == EFFECT_STUN) then
-            effectres = MOD_STUNRES;
-        elseif (effect == EFFECT_CHARM) then
-            effectres = MOD_CHARMRES;
-        elseif (effect == EFFECT_AMNESIA) then
-            effectres = MOD_AMNESIARES;
-        end
-
-        if (effectres > 0) then
-            percentBonus = percentBonus - target:getMod(effectres);
-        end
+    if(effect ~= nil) then
+        percentBonus = percentBonus - getEffectResistance(target, effect);
     end
 
     local p = getMagicHitRate(player, target, skill, element, percentBonus, magicaccbonus);
@@ -486,8 +366,7 @@ end;
 --Applies resistance for additional effects
 function applyResistanceAddEffect(player,target,element,bonus)
 
-    -- Add a base 75 magic acc
-    local p = getMagicHitRate(player, target, 0, element, 75, bonus);
+    local p = getMagicHitRate(player, target, 0, element, 0, bonus);
 
     return getMagicResist(p);
 end;
@@ -498,7 +377,6 @@ function getMagicHitRate(caster, target, skillType, element, percentBonus, bonus
         return 0;
     end
 
-    local magicacc = 0;
     local magiceva = 0;
 
     if (bonusAcc == nil) then
@@ -510,27 +388,20 @@ function getMagicHitRate(caster, target, skillType, element, percentBonus, bonus
 
     if (skillType ~= 0) then
         magicacc = magicacc + caster:getSkillLevel(skillType) + caster:getMod(79 + skillType);
+    else
+        -- for mob skills / additional effects which don't have a skill
+        magicacc = magicacc + utils.getSkillLvl(1, caster:getMainLvl());
     end
 
     local resMod = 0; -- Some spells may possibly be non elemental, but have status effects.
-    if (element > ELE_NONE) then
+    if (element ~= ELE_NONE) then
         resMod = target:getMod(resistMod[element]);
-    end
 
-    if (element > ELE_NONE) then
-        -- Add acc for staves
-        local affinityBonus = AffinityBonus(caster, element);
-        bonusAcc = bonusAcc + (affinityBonus-1) * 200;
-    end
-
-    --add acc for RDM group 1 merits
-    if (element > 0 and element <= 6) then
-        bonusAcc = bonusAcc + caster:getMerit(rdmMerit[element]);
-    end
-
-    -- BLU mag acc merits - nuke acc is handled in bluemagic.lua
-    if (skill == BLUE_SKILL) then
-        bonusAcc = bonusAcc + caster:getMerit(MERIT_MAGICAL_ACCURACY);
+        -- Add acc for elemental affinity accuracy and element specific accuracy
+        local affinityBonus = AffinityBonusAcc(caster, element);
+        local elementBonus = caster:getMod(spellAcc[element]);
+        -- print(elementBonus);
+        bonusAcc = bonusAcc + affinityBonus + elementBonus;
     end
 
     -- Base magic evasion (base magic evasion plus resistances(players), plus elemental defense(mobs)
@@ -548,7 +419,7 @@ function calculateMagicHitRate(magicacc, magiceva, percentBonus, casterLvl, targ
 
     p = 50 - 0.5 * (magiceva - magicacc) + levelDiff * 2 + percentBonus;
 
-    -- printf("P: %f, macc: %f, meva: %f, bonus: %d%%, leveldiff: %d%%", p, magicacc, magiceva, percentBonus, levelDiff);
+    -- printf("P: %f, macc: %f, meva: %f, bonus: %d%%, leveldiff: %d", p, magicacc, magiceva, percentBonus, levelDiff);
 
     return utils.clamp(p, 5, 95);
 end
@@ -592,150 +463,104 @@ function getMagicResist(magicHitRate)
     return resist;
 end
 
------------------------------------
---     SKILL LEVEL CALCULATOR
---     Returns a skill level based on level and rating.
---
---    See the translation of aushacho's work by Themanii:
---    http://home.comcast.net/~themanii/skill.html
---
---    The arguments are skill rank (numerical), and level.  1 is A+, 2 is A-, and so on.
------------------------------------
+-- Returns the amount of resistance the
+-- target has to the given effect (stun, sleep, etc..)
+function getEffectResistance(target, effect)
+    local effectres = 0;
+    if (effect == EFFECT_SLEEP_I or effect == EFFECT_SLEEP_II) then
+        effectres = MOD_SLEEPRES;
+    elseif(effect == EFFECT_LULLABY) then
+        effectres = MOD_LULLABYRES;
+    elseif (effect == EFFECT_POISON) then
+        effectres = MOD_POISONRES;
+    elseif (effect == EFFECT_PARALYZE) then
+        effectres = MOD_PARALYZERES;
+    elseif (effect == EFFECT_BLINDNESS) then
+        effectres = MOD_BLINDRES
+    elseif (effect == EFFECT_SILENCE) then
+        effectres = MOD_SILENCERES;
+    elseif (effect == EFFECT_PLAGUE or effect == EFFECT_DISEASE) then
+        effectres = MOD_VIRUSRES;
+    elseif (effect == EFFECT_PETRIFICATION) then
+        effectres = MOD_PETRIFYRES;
+    elseif (effect == EFFECT_BIND) then
+        effectres = MOD_BINDRES;
+    elseif (effect == EFFECT_CURSE_I or effect == EFFECT_CURSE_II or effect == EFFECT_BANE) then
+        effectres = MOD_CURSERES;
+    elseif (effect == EFFECT_WEIGHT) then
+        effectres = MOD_GRAVITYRES;
+    elseif (effect == EFFECT_SLOW) then
+        effectres = MOD_SLOWRES;
+    elseif (effect == EFFECT_STUN) then
+        effectres = MOD_STUNRES;
+    elseif (effect == EFFECT_CHARM) then
+        effectres = MOD_CHARMRES;
+    elseif (effect == EFFECT_AMNESIA) then
+        effectres = MOD_AMNESIARES;
+    end
 
-function getSkillLvl(rank,level)
+    if (effectres ~= 0) then
+        return target:getMod(effectres);
+    end
 
-    local skill = 0; --Failsafe
+    return 0;
+end;
 
-    if (level <= 50) then --Levels 1-50
-        if (rank == 1 or rank == 2) then --A-Rated Skill
-            skill = (((level-1)*3)+6);
-        elseif (rank == 3 or rank == 4 or rank == 5) then --B-Rated Skill
-            skill = (((level-1)*2.9)+5);
-        elseif (rank == 6 or rank == 7 or rank == 8) then --C-Rated Skill
-            skill = (((level-1)*2.8)+5);
-        elseif (rank == 9) then --D-Rated Skill
-            skill = (((level-1)*2.7)+4);
-        elseif (rank == 10) then --E-Rated Skill
-            skill = (((level-1)*2.5)+4);
-        elseif (rank == 11) then --F-Rated Skill
-            skill = (((level-1)*2.3)+4);
-        end
-    elseif (level > 50 and level <= 60) then --Levels 51-60
-        if (rank == 1 or rank == 2) then --A-Rated Skill
-            skill = (((level-50)*5)+153);
-        elseif (rank == 3 or rank == 4 or rank == 5) then --B-Rated Skill
-            skill = (((level-50)*4.9)+147);
-        elseif (rank == 6 or rank == 7 or rank == 8) then --C-Rated Skill
-            skill = (((level-50)*4.8)+142);
-        elseif (rank == 9) then --D-Rated Skill
-            skill = (((level-50)*4.7)+136);
-        elseif (rank == 10) then --E-Rated Skill
-            skill = (((level-50)*4.5)+126);
-        elseif (rank == 11) then --F-Rated Skill
-            skill = (((level-50)*4.3)+116);
-        end
-    elseif (level > 60 and level <= 70) then --Levels 61-70
-        if (rank == 1) then --A+ Rated Skill
-            skill = (((level-60)*4.85)+203);
-        elseif (rank == 2) then --A- Rated Skill
-            skill = (((level-60)*4.10)+203);
-        elseif (rank == 3) then --B+ Rated Skill
-            skill = (((level-60)*3.70)+196);
-        elseif (rank == 4) then --B Rated Skill
-            skill = (((level-60)*3.23)+196);
-        elseif (rank == 5) then --B- Rated Skill
-            skill = (((level-60)*2.70)+196);
-        elseif (rank == 6) then --C+ Rated Skill
-            skill = (((level-60)*2.50)+190);
-        elseif (rank == 7) then --C Rated Skill
-            skill = (((level-60)*2.25)+190);
-        elseif (rank == 8) then --C- Rated Skill
-            skill = (((level-60)*2.00)+190);
-        elseif (rank == 9) then --D Rated Skill
-            skill = (((level-60)*1.85)+183);
-        elseif (rank == 10) then --E Rated Skill
-            skill = (((level-60)*1.95)+171);
-        elseif (rank == 11) then --F Rated Skill
-            skill = (((level-60)*2.05)+159);
-        end
-    else --Level 71 and above
-        if (rank == 1) then --A+ Rated Skill
-            skill = (((level-70)*5)+251);
-        elseif (rank == 2) then --A- Rated Skill
-            skill = (((level-70)*5)+244);
-        elseif (rank == 3) then --B+ Rated Skill
-            skill = (((level-70)*3.70)+233);
-        elseif (rank == 4) then --B Rated Skill
-            skill = (((level-70)*3.23)+228);
-        elseif (rank == 5) then --B- Rated Skill
-            skill = (((level-70)*2.70)+223);
-        elseif (rank == 6) then --C+ Rated Skill
-            skill = (((level-70)*3)+215);
-        elseif (rank == 7) then --C Rated Skill
-            skill = (((level-70)*2.6)+212);
-        elseif (rank == 8) then --C- Rated Skill
-            skill = (((level-70)*2.00)+210);
-        elseif (rank == 9) then --D Rated Skill
-            skill = (((level-70)*1.85)+201);
-        elseif (rank == 10) then --E Rated Skill
-            skill = (((level-70)*1.95)+190);
-        elseif (rank == 11) then --F Rated Skill
-            skill = (((level-70)*2)+179);
+-- Returns the bonus magic accuracy for any spell
+function getSpellBonusAcc(caster, target, spell)
+    local magicAccBonus = 0;
+    local spellId = spell:getID();
+    local element = spell:getElement();
+    local castersWeather = caster:getWeather();
+    local skill = spell:getSkillType();
+    local spellGroup = spell:getSpellGroup();
+
+    if caster:hasStatusEffect(EFFECT_ALTRUISM) and spellGroup == SPELLGROUP_WHITE then
+      magicAccBonus = magicAccBonus + caster:getStatusEffect(EFFECT_ALTRUISM):getPower();
+    end
+
+    if caster:hasStatusEffect(EFFECT_FOCALIZATION) and spellGroup == SPELLGROUP_BLACK then
+      magicAccBonus = magicAccBonus + caster:getStatusEffect(EFFECT_FOCALIZATION):getPower();
+    end
+
+    local skillchainTier, skillchainCount = FormMagicBurst(element, target);
+
+    --add acc for BLM AMII spells
+    if (spellId == 205 or spellId == 207 or spellId == 209 or spellId == 211 or spellId == 213 or spellId == 215) then
+        -- no bonus if the caster has zero merit investment - don't want to give them a negative bonus
+        if (caster:getMerit(blmAMIIMerit[element]) ~= 0) then
+            -- bonus value granted by merit is 1; subtract 1 since unlock doesn't give an accuracy bonus
+            magicAccBonus = magicAccBonus + (caster:getMerit(blmAMIIMerit[element]) - 1) * 5;
         end
     end
 
-    return skill;
+    --add acc for skillchains
+    if (skillchainTier > 0) then
+        magicAccBonus = magicAccBonus + 25;
+    end
 
- end;
+    --Add acc for klimaform
+    if (caster:hasStatusEffect(EFFECT_KLIMAFORM) and (castersWeather == singleWeatherStrong[element] or castersWeather == doubleWeatherStrong[element])) then
+        magicAccBonus = magicAccBonus + 15;
+    end
 
- function getBase(rank, level)
-     if(level > 50) then
-         if(rank == 1) then
-             return 153+(level-50)*5.0;
-         end
-         if(rank == 2) then
-             return 147+(level-50)*4.9;
-         end
-         if(rank == 3) then
-             return 136+(level-50)*4.8;
-         end
-         if(rank == 4) then
-             return 126+(level-50)*4.7;
-         end
-         if(rank == 5) then
-             return 116+(level-50)*4.5;
-         end
-         if(rank == 6) then
-             return 106+(level-50)*4.4;
-         end
-         if(rank == 7) then
-             return 96+(level-50)*4.3;
-         end
-     end
+    --Add acc for dark seal
+    if (skill == DARK_MAGIC_SKILL and caster:hasStatusEffect(EFFECT_DARK_SEAL)) then
+        magicAccBonus = magicAccBonus + 256;
+    end
 
-     if(rank == 1) then
-         return 6+(level-1)*3.0;
-     end
-     if(rank == 2) then
-         return 5+(level-1)*2.9;
-     end
-     if(rank == 3) then
-         return 5+(level-1)*2.8;
-     end
-     if(rank == 4) then
-         return 4+(level-1)*2.7;
-     end
-     if(rank == 5) then
-         return 4+(level-1)*2.5;
-     end
-     if(rank == 6) then
-         return 3+(level-1)*2.4;
-     end
-     if(rank == 7) then
-         return 3+(level-1)*2.3;
-     end
-    return 0;
- end;
+    --add acc for RDM group 1 merits
+    if (element > 0 and element <= 6) then
+        magicAccBonus = magicAccBonus + caster:getMerit(rdmMerit[element]);
+    end
+
+    -- BLU mag acc merits - nuke acc is handled in bluemagic.lua
+    if (skill == BLUE_SKILL) then
+        magicAccBonus = magicAccBonus + caster:getMerit(MERIT_MAGICAL_ACCURACY);
+    end
+
+    return magicAccBonus;
+end;
 
 function handleAfflatusMisery(caster, spell, dmg)
     if (caster:hasStatusEffect(EFFECT_AFFLATUS_MISERY)) then
@@ -900,16 +725,15 @@ end;
 function addBonuses(caster, spell, target, dmg, bonusmab)
     local ele = spell:getElement();
 
-    local affinityBonus = AffinityBonus(caster, spell:getElement());
+    local affinityBonus = AffinityBonusDmg(caster, ele);
     dmg = math.floor(dmg * affinityBonus);
 
     if (bonusmab == nil) then
         bonusmab = 0;
     end
 
-    local speciesReduction = target:getMod(defenseMod[ele]);
-    speciesReduction = 1.00 - (speciesReduction/1000);
-    dmg = math.floor(dmg * speciesReduction);
+    local magicDefense = getElementalDamageReduction(target, ele);
+    dmg = math.floor(dmg * magicDefense);
 
     local dayWeatherBonus = 1.00;
     local equippedMain = caster:getEquipID(SLOT_MAIN);
@@ -1019,12 +843,11 @@ end;
 
 function addBonusesAbility(caster, ele, target, dmg, params)
 
-    local affinityBonus = AffinityBonus(caster, ele);
+    local affinityBonus = AffinityBonusDmg(caster, ele);
     dmg = math.floor(dmg * affinityBonus);
 
-    local speciesReduction = target:getMod(defenseMod[ele]);
-    speciesReduction = 1.00 - (speciesReduction/1000);
-    dmg = math.floor(dmg * speciesReduction);
+    local magicDefense = getElementalDamageReduction(target, ele);
+    dmg = math.floor(dmg * magicDefense);
 
     local dayWeatherBonus = 1.00;
     local equippedMain = caster:getEquipID(SLOT_MAIN);
@@ -1105,6 +928,18 @@ function addBonusesAbility(caster, ele, target, dmg, params)
     return dmg;
 end;
 
+-- get elemental damage reduction
+function getElementalDamageReduction(target, element)
+    local defense = 1;
+    if (element > 0) then
+        defense = 1 - (target:getMod(defenseMod[element]) / 256);
+
+        return utils.clamp(defense, 0.0, 2.0);
+    end
+
+    return defense;
+end
+
 ---------------------------------------------------------------------
 --     Elemental Debuff Potency functions
 ---------------------------------------------------------------------
@@ -1168,7 +1003,7 @@ end;
 
 function handleThrenody(caster, target, spell, basePower, baseDuration, modifier)
     -- Process resitances
-    local staff = AffinityBonus(caster, spell:getElement());
+    local staff = AffinityBonusAcc(caster, spell:getElement());
     -- print("staff=" .. staff);
     local dCHR = (caster:getStat(MOD_CHR) - target:getStat(MOD_CHR));
     -- print("dCHR=" .. dCHR);
@@ -1388,7 +1223,7 @@ function outputMagicHitRateInfo()
 
             if(targetLvl >= 0) then
                 -- assume BLM spell, A+
-                local magicAcc = getSkillLvl(1, casterLvl);
+                local magicAcc = utils.getSkillLvl(1, casterLvl);
                 -- assume default monster magic eva, D
                 local magicEvaRank = 7;
 
@@ -1400,7 +1235,7 @@ function outputMagicHitRateInfo()
                     magicEvaRank = 6;
                 end
 
-                local magicEva = getBase(magicEvaRank, targetLvl);
+                local magicEva = utils.getMobSkillLvl(magicEvaRank, targetLvl);
 
                 local dINT = (lvlMod + 1) * -1;
 
